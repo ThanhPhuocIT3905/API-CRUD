@@ -51,9 +51,12 @@ public class UserService {
     }
 
     // Lấy thông tin người dùng theo tên (READ)
-    public User searchByName(String name) {
-        return userRepository.findByName(name)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy user với tên: " + name));
+    public List<User> searchByName(String name) {
+        List<User> users = userRepository.findByName(name);
+        if (users.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy user với tên: " + name);
+        }
+        return users;
     }
 
     // Cập nhật thông tin người dùng (UPDATE)

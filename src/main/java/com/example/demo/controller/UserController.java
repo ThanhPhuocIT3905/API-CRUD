@@ -55,7 +55,7 @@ public class UserController {
 
     // Lấy thông tin người dùng theo tên (READ)
     @GetMapping("/searchName")
-    public User searchByName(@RequestParam String name) {
+    public List<User> searchByName(@RequestParam String name) {
         return userService.searchByName(name);
     }
 
