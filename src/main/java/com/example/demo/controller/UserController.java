@@ -25,6 +25,7 @@ import com.example.demo.service.UserService;
 import jakarta.validation.Valid;
 
 import com.example.demo.entity.User;
+import com.example.demo.exception.FieldValidationException;
 import com.example.demo.dto.request.UserCreationRequest;
 import com.example.demo.dto.request.UserUpdateRequest;
 
@@ -93,5 +94,12 @@ public class UserController {
             errors.put("error", ex.getMessage()); // Lưu lỗi nghiệp vụ vào map với key là "error" và value là thông báo lỗi
         }
         return errors; // Trả về lỗi xác thực và lỗi nghiệp vụ dưới dạng JSON với key là tên trường và value là thông báo lỗi
+    }
+
+    // Xử lý lỗi xác thực đầu vào (ví dụ: email đã được sử dụng)
+    @ExceptionHandler(FieldValidationException.class) // Bắt lỗi xác thực đầu vào và trả về lỗi dưới dạng JSON với key là tên trường và value là thông báo lỗi
+    @ResponseStatus(HttpStatus.BAD_REQUEST) // 400 Bad Request khi có lỗi xác thực đầu vào
+    public Map<String, String> handleFieldValidation(FieldValidationException ex) { 
+        return ex.getErrors(); // Trả về lỗi xác thực đầu vào dưới dạng JSON với key là tên trường và value là thông báo lỗi
     }
 }
