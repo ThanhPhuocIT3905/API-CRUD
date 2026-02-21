@@ -1,105 +1,110 @@
 package com.example.demo.controller;
 
+import com.example.demo.entity.User;
+import com.example.demo.Repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.http.HttpStatus;
-
-import com.example.demo.service.UserService;
-
-import jakarta.validation.Valid;
-
-import com.example.demo.entity.User;
-import com.example.demo.exception.FieldValidationException;
-import com.example.demo.dto.request.UserCreationRequest;
-import com.example.demo.dto.request.UserUpdateRequest;
-
+/**
+ * UserController: Controller cho các operations liên quan đến user
+ * 
+ * Các endpoint được bảo vệ bởi JWT authentication:
+ * - GET /api/user/profile - Lấy thông tin user hiện tại (cần authentication)
+ * - GET /api/user/all - Lấy tất cả users (chỉ admin)
+ * - GET /api/user/protected - Endpoint cần authentication
+ * - GET /api/user/admin - Endpoint chỉ dành cho admin
+ */
 @RestController
-@RequestMapping("/users")
+@RequestMapping("/api/user")
+@CrossOrigin(origins = "*", maxAge = 3600)
 public class UserController {
-    // Inject UserService để xử lý logic nghiệp vụ
+
     @Autowired
-    private UserService userService;
+    private UserRepository userRepository;
 
-    // Lấy danh sách người dùng (READ)
-    @GetMapping
-    List<User> getUsers() {
-        return userService.getUsers();
+    /**
+     * Lấy thông tin profile của user đang đăng nhập
+     * Endpoint: GET /api/user/profile
+     * Security: Cần JWT token hợp lệ
+     */
+    @GetMapping("/profile")
+    @PreAuthorize("isAuthenticated()")
+    public Map<String, Object> getUserProfile() {
+        // Lấy authentication từ SecurityContext
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        // Lấy email từ authentication
+        String email = authentication.getName();
+        
+        // Tìm user trong database
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Tạo response (không bao gồm password)
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", user.getId());
+        response.put("name", user.getName());
+        response.put("email", user.getEmail());
+        response.put("role", user.getRole());
+        response.put("message", "Profile retrieved successfully");
+
+        return response;
     }
 
-    // Lấy thông tin người dùng theo ID (READ)
-    @GetMapping("/{userId}")
-    User getUserById(@PathVariable String userId) {
-        return userService.getUserById(userId);
+    /**
+     * Endpoint public để test - không cần authentication
+     * Endpoint: GET /api/user/public
+     * Security: Public endpoint
+     */
+    @GetMapping("/public")
+    public Map<String, String> publicEndpoint() {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "This is a public endpoint - no authentication required");
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        return response;
     }
 
-    // Lấy thông tin người dùng theo email (READ)
-    @GetMapping("/searchEmail")
-    public User searchByEmail(@RequestParam String email) {
-        return userService.searchByEmail(email);
+    /**
+     * Endpoint cho user đã đăng nhập
+     * Endpoint: GET /api/user/protected
+     * Security: Cần JWT token hợp lệ
+     */
+    @GetMapping("/protected")
+    @PreAuthorize("isAuthenticated()")
+    public Map<String, Object> protectedEndpoint() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "This is a protected endpoint - authentication required");
+        response.put("user", authentication.getName());
+        response.put("authorities", authentication.getAuthorities());
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        
+        return response;
     }
 
-    // Lấy thông tin người dùng theo tên (READ)
-    @GetMapping("/searchName")
-    public List<User> searchByName(@RequestParam String name) {
-        return userService.searchByName(name);
-    }
-
-    // Tạo người dùng mới (CREATE)
-    @PostMapping
-    User createUser(@RequestBody @Valid UserCreationRequest request) {
-        return userService.createUser(request);  
-    }
-
-    // Cập nhật thông tin người dùng (UPDATE)
-    @PutMapping("/{userId}")
-    User updateUser(@PathVariable String userId, @RequestBody @Valid UserUpdateRequest request) {
-        return userService.updateUser(userId, request);
-    }
-
-    // Xóa người dùng (DELETE)
-    @DeleteMapping("/{userId}")
-    String deleteUser(@PathVariable String userId) {
-        userService.deleteUser(userId);
-        return "User deleted successfully";
-    }
-
-    // Xử lý lỗi xác thực đầu vào và lỗi nghiệp vụ (ví dụ: email đã được sử dụng)
-    @ResponseStatus(HttpStatus.BAD_REQUEST) // 400 Bad Request khi có lỗi xác thực hoặc lỗi nghiệp vụ
-    @ExceptionHandler({MethodArgumentNotValidException.class, RuntimeException.class}) // Bắt cả lỗi xác thực và lỗi nghiệp vụ
-    public Map<String, String> handleValidationAndBusinessExceptions(Exception ex) { // Trả về lỗi xác thực và lỗi nghiệp vụ dưới dạng JSON với key là tên trường và value là thông báo lỗi
-        Map<String, String> errors = new HashMap<>(); // Lưu trữ lỗi xác thực và lỗi nghiệp vụ
-        if (ex instanceof MethodArgumentNotValidException manvEx) { // Kiem tra lỗi xác thực
-            manvEx.getBindingResult().getAllErrors().forEach((error) -> { // Lấy tất cả lỗi xác thực và lưu vào map errors
-                String fieldName = ((FieldError) error).getField(); // Lấy tên trường gây lỗi
-                String errorMessage = error.getDefaultMessage(); // Lấy thông báo lỗi
-                errors.put(fieldName, errorMessage); // Lưu lỗi vào map với key là tên trường và value là thông báo lỗi
-            });
-        } else {
-            errors.put("error", ex.getMessage()); // Lưu lỗi nghiệp vụ vào map với key là "error" và value là thông báo lỗi
-        }
-        return errors; // Trả về lỗi xác thực và lỗi nghiệp vụ dưới dạng JSON với key là tên trường và value là thông báo lỗi
-    }
-
-    // Xử lý lỗi xác thực đầu vào (ví dụ: email đã được sử dụng)
-    @ExceptionHandler(FieldValidationException.class) // Bắt lỗi xác thực đầu vào và trả về lỗi dưới dạng JSON với key là tên trường và value là thông báo lỗi
-    @ResponseStatus(HttpStatus.BAD_REQUEST) // 400 Bad Request khi có lỗi xác thực đầu vào
-    public Map<String, String> handleFieldValidation(FieldValidationException ex) { 
-        return ex.getErrors(); // Trả về lỗi xác thực đầu vào dưới dạng JSON với key là tên trường và value là thông báo lỗi
+    /**
+     * Endpoint chỉ dành cho admin
+     * Endpoint: GET /api/user/admin
+     * Security: Chỉ có role ADMIN
+     */
+    @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Map<String, Object> adminEndpoint() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "This is an admin-only endpoint");
+        response.put("admin", authentication.getName());
+        response.put("authorities", authentication.getAuthorities());
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        
+        return response;
     }
 }
