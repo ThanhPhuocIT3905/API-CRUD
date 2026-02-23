@@ -44,7 +44,7 @@ public class UserController {
         
         // Tìm user trong database
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
         // Tạo response (không bao gồm password)
         Map<String, Object> response = new HashMap<>();
@@ -52,7 +52,7 @@ public class UserController {
         response.put("name", user.getName());
         response.put("email", user.getEmail());
         response.put("role", user.getRole());
-        response.put("message", "Profile retrieved successfully");
+        response.put("message", "Truy xuất hồ sơ thành công");
 
         return response;
     }
@@ -65,7 +65,7 @@ public class UserController {
     @GetMapping("/public")
     public Map<String, String> publicEndpoint() {
         Map<String, String> response = new HashMap<>();
-        response.put("message", "This is a public endpoint - no authentication required");
+        response.put("message", "Đây là một endpoint public - không cần xác thực");
         response.put("timestamp", java.time.LocalDateTime.now().toString());
         return response;
     }
@@ -76,15 +76,15 @@ public class UserController {
      * Security: Cần JWT token hợp lệ
      */
     @GetMapping("/protected")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()") // Chỉ cho phép người dùng đã xác thực
     public Map<String, Object> protectedEndpoint() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication(); // Lấy authentication từ SecurityContext
         
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "This is a protected endpoint - authentication required");
-        response.put("user", authentication.getName());
-        response.put("authorities", authentication.getAuthorities());
-        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        response.put("message", "Đây là một endpoint được bảo vệ - cần xác thực"); // Trả về thông báo
+        response.put("user", authentication.getName()); // Trả về tên người dùng
+        response.put("authorities", authentication.getAuthorities()); // Trả về quyền hạn
+        response.put("timestamp", java.time.LocalDateTime.now().toString()); // Trả về thời gian
         
         return response;
     }
@@ -100,7 +100,7 @@ public class UserController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "This is an admin-only endpoint");
+        response.put("message", "Đây là một endpoint chỉ dành cho admin");
         response.put("admin", authentication.getName());
         response.put("authorities", authentication.getAuthorities());
         response.put("timestamp", java.time.LocalDateTime.now().toString());

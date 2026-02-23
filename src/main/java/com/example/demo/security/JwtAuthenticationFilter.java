@@ -42,10 +42,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @throws ServletException Nếu có lỗi servlet
      * @throws IOException Nếu có lỗi I/O
      */
+    
     @Override
     protected void doFilterInternal(HttpServletRequest request, 
-                                  HttpServletResponse response, 
-                                  FilterChain filterChain) throws ServletException, IOException {
+                                HttpServletResponse response, 
+                                FilterChain filterChain) throws ServletException, IOException {
         
         try {
             // Lấy JWT token từ request
@@ -74,9 +75,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Điều này cho phép Spring Security biết user đã được xác thực
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
+        } catch (io.jsonwebtoken.security.SignatureException ex) {
+            // Token có chữ ký không hợp lệ (bị thay đổi hoặc không đúng secret key)
+            logger.error("JWT signature validation failed: Token có thể đã bị thay đổi hoặc secret key không đúng", ex);
+        } catch (io.jsonwebtoken.MalformedJwtException ex) {
+            // Token không đúng định dạng
+            logger.error("JWT token is malformed: Token không đúng định dạng", ex);
+        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
+            // Token đã hết hạn
+            logger.error("JWT token is expired: Token đã hết hạn", ex);
+        } catch (io.jsonwebtoken.UnsupportedJwtException ex) {
+            // Token không được hỗ trợ
+            logger.error("JWT token is unsupported: Token không được hỗ trợ", ex);
+        } catch (IllegalArgumentException ex) {
+            // Token null hoặc rỗng
+            logger.error("JWT claims string is empty: Token rỗng hoặc null", ex);
+        } catch (org.springframework.security.core.userdetails.UsernameNotFoundException ex) {
+            // Không tìm thấy user trong database
+            logger.error("User not found in database: Không tìm thấy người dùng trong database", ex);
         } catch (Exception ex) {
-            // Log lỗi nhưng không throw exception để không block request
-            logger.error("Could not set user authentication in security context", ex);
+            // Các lỗi khác chưa được xác định
+            logger.error("Unexpected error during JWT authentication: Lỗi không mong muốn trong quá trình xác thực JWT", ex);
         }
         
         // Tiếp tục chuỗi filter

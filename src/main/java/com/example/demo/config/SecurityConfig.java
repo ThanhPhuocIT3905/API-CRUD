@@ -14,6 +14,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration; 
+import org.springframework.web.cors.CorsConfigurationSource; 
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource; 
+
+import java.util.Arrays;
 
 /**
  * SecurityConfig: Cấu hình bảo mật cho ứng dụng với JWT authentication
@@ -22,7 +27,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * - Cấu hình JWT authentication filter
  * - Set authentication manager và user details service
  * - Cấu hình các endpoint public và protected
- * - Disable session management (stateless JWT)
+ * - Disable session management (stateless JWT  )
  * - Cấu hình CORS và CSRF
  */
 @Configuration
@@ -52,12 +57,32 @@ public class SecurityConfig {
     }
 
     /**
+     * Cấu hình CORS
+     * Chỉ cho phép các origin cụ thể trong môi trường production
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // Trong production, thay thế "*" bằng các domain cụ thể của frontend
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "https://yourfrontend.com"  )); // Chỉ cho phép các domain cụ thể
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS")); // Chỉ cho phép các method cụ thể
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept")); // Chỉ cho phép các header cụ thể
+        configuration.setAllowCredentials(true); // Cho phép gửi cookies, authorization headers
+        configuration.setMaxAge(3600L); // Thời gian cache preflight request
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    /**
      * Cấu hình Security Filter Chain
      * Đây là phần quan trọng nhất cho JWT authentication
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http  ) throws Exception {
         http
+            // Kích hoạt CORS với cấu hình đã định nghĩa
+            .cors(cors -> cors.configurationSource(corsConfigurationSource(  )))
             // Disable CSRF vì JWT không cần
             .csrf(csrf -> csrf.disable())
             
@@ -71,12 +96,13 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Các endpoint public - không cần authentication
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/user/public").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/").permitAll()
                 
                 // Các endpoint cần authentication
-                .requestMatchers("/api/user/**").authenticated()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // .requestMatchers("/api/user/**").authenticated() // Có thể bỏ nếu dùng @PreAuthorize
+                // .requestMatchers("/api/admin/**").hasRole("ADMIN") // Có thể bỏ nếu dùng @PreAuthorize
                 
                 // Mặc định các request khác cần authentication
                 .anyRequest().authenticated()
@@ -87,12 +113,12 @@ public class SecurityConfig {
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(401);
                     response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Please authenticate to access this resource\"}");
+                    response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Vui lòng đăng nhập để truy cập tài nguyên\"}");
                 })
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
                     response.setStatus(403);
                     response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"You don't have permission to access this resource\"}");
+                    response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"Bạn không có quyền truy cập vào tài nguyên này.\"}");
                 })
             );
 
