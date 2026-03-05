@@ -36,7 +36,7 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     @Autowired
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    private JwtAuthenticationFilter jwtAuthenticationFilter; // Filter để xác thực JWT
 
     /**
      * Cấu hình Password Encoder
@@ -69,8 +69,8 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept")); // Chỉ cho phép các header cụ thể
         configuration.setAllowCredentials(true); // Cho phép gửi cookies, authorization headers
         configuration.setMaxAge(3600L); // Thời gian cache preflight request
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource(); // Định nghĩa source CORS
+        source.registerCorsConfiguration("/**", configuration); // Đăng ký cấu hình CORS
         return source;
     }
 
@@ -79,10 +79,10 @@ public class SecurityConfig {
      * Đây là phần quan trọng nhất cho JWT authentication
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http  ) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             // Kích hoạt CORS với cấu hình đã định nghĩa
-            .cors(cors -> cors.configurationSource(corsConfigurationSource(  )))
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // Disable CSRF vì JWT không cần
             .csrf(csrf -> csrf.disable())
             
@@ -99,10 +99,6 @@ public class SecurityConfig {
                 .requestMatchers("/api/user/public").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/").permitAll()
-                
-                // Các endpoint cần authentication
-                // .requestMatchers("/api/user/**").authenticated() // Có thể bỏ nếu dùng @PreAuthorize
-                // .requestMatchers("/api/admin/**").hasRole("ADMIN") // Có thể bỏ nếu dùng @PreAuthorize
                 
                 // Mặc định các request khác cần authentication
                 .anyRequest().authenticated()

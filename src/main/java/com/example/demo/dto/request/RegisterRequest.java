@@ -1,5 +1,10 @@
 package com.example.demo.dto.request;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import com.example.demo.enums.Role;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -52,4 +57,7 @@ public class RegisterRequest {
      */
     @NotBlank(message = "Xác nhận mật khẩu không được để trống")
     private String confirmPassword;
+
+    // Optional: Cho phép assign roles khi đăng ký (admin only)
+    private Set<Role> roles = new HashSet<>();
 }

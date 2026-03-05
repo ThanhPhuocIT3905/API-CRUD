@@ -108,7 +108,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @param request HTTP request
      * @return JWT token string hoặc null nếu không tìm thấy
      */
-    private String getJwtFromRequest(HttpServletRequest request) {
+    private String getJwtFromRequest(HttpServletRequest request) {  
         // Lấy Authorization header
         String bearerToken = request.getHeader("Authorization");
         

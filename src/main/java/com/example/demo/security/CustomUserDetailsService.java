@@ -33,22 +33,22 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @return UserDetails object chứa thông tin user
      * @throws UsernameNotFoundException Nếu không tìm thấy user
      */
-    @Override
-    @Transactional(readOnly = true) // Read-only transaction để tối ưu performance
+   @Override
+    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         // Tìm user trong database bằng email
         User user = userRepository.findByEmail(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
 
         // Convert User entity thành UserDetails object
-        return org.springframework.security.core.userdetails.User.builder()
+        return org.springframework.security.core.userdetails.User.builder() 
                 .username(user.getEmail()) // Sử dụng email làm username
-                .password(user.getPassword()) // Password đã được mã hóa BCrypt
-                .authorities(getUserAuthorities(user)) // Set authorities/roles
-                .accountExpired(false) // Account không hết hạn
-                .accountLocked(false) // Account không bị khóa
-                .credentialsExpired(false) // Credentials không hết hạn
-                .disabled(false) // Account không bị disabled
+                .password(user.getPassword()) // Sử dụng password
+                .authorities(getUserAuthorities(user)) // Lấy authorities từ user
+                .accountExpired(!user.isAccountNonExpired()) // Hết hạn
+                .accountLocked(!user.isAccountNonLocked()) // Bị khóa
+                .credentialsExpired(!user.isCredentialsNonExpired()) // Hết hạn
+                .disabled(!user.isEnabled()) // Bị vô hiệu hóa
                 .build();
     }
 
@@ -62,28 +62,33 @@ public class CustomUserDetailsService implements UserDetailsService {
     private java.util.Collection<SimpleGrantedAuthority> getUserAuthorities(User user) {
         java.util.ArrayList<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
         
-        // Thêm role của user với prefix "ROLE_"
-        // Spring Security yêu cầu role phải có prefix "ROLE_"
-        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
-        
-        // Có thể mở rộng để thêm các quyền khác dựa trên role
-        switch (user.getRole()) {
-            case ADMIN:
-                // Admin có tất cả các quyền
-                authorities.add(new SimpleGrantedAuthority("PERMISSION_READ_ALL"));
-                authorities.add(new SimpleGrantedAuthority("PERMISSION_WRITE_ALL"));
-                authorities.add(new SimpleGrantedAuthority("PERMISSION_DELETE_ALL"));
-                break;
-            case MODERATOR:
-                // Moderator có quyền quản lý nội dung
-                authorities.add(new SimpleGrantedAuthority("PERMISSION_READ_ALL"));
-                authorities.add(new SimpleGrantedAuthority("PERMISSION_WRITE_CONTENT"));
-                break;
-            case USER:
-                // User chỉ có quyền cơ bản
-                authorities.add(new SimpleGrantedAuthority("PERMISSION_READ_OWN"));
-                authorities.add(new SimpleGrantedAuthority("PERMISSION_WRITE_OWN"));
-                break;
+        // Multi-role support - lặp qua tất cả roles
+        for (com.example.demo.enums.Role role : user.getRoles()) {
+            // Thêm role với prefix "ROLE_"
+            authorities.add(new SimpleGrantedAuthority(role.name()));
+            
+            // Thêm permissions dựa trên từng role
+            switch (role) {
+                // Admin có tất cả quyền
+                case ROLE_ADMIN:
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_READ_ALL"));
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_WRITE_ALL"));
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_DELETE_ALL"));
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_MANAGE_USERS"));
+                    break;
+                    //Moderator có quyền đọc, viết, và moderating
+                case ROLE_MODERATOR:
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_READ_ALL"));
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_WRITE_CONTENT"));
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_MODERATE"));
+                    break;
+                    // User có quyền đọc và viết cho bản thân
+                case ROLE_USER:
+                default:
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_READ_OWN"));
+                    authorities.add(new SimpleGrantedAuthority("PERMISSION_WRITE_OWN"));
+                    break;
+            }
         }
         
         return authorities;

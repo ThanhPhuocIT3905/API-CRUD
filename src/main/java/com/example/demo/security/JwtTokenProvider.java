@@ -53,7 +53,7 @@ public class JwtTokenProvider {
                 .issuedAt(new Date()) // Thời gian tạo token
                 .expiration(new Date(System.currentTimeMillis() + jwtExpirationInMs)) // Thời gian hết hạn
                 .signWith(getSigningKey()) // Ký token với secret key
-                .compact();
+                .compact(); // Tạo token
     }
 
     /**
@@ -63,12 +63,12 @@ public class JwtTokenProvider {
      */
     public String getUsernameFromToken(String token) {
         Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+                .verifyWith(getSigningKey()) // Xác thực token
+                .build() // Tạo parser
+                .parseSignedClaims(token) // Parse token
+                .getPayload(); // Lấy payload
         
-        return claims.getSubject();
+        return claims.getSubject(); // Lấy subject (username)
     }
 
     /**
@@ -80,20 +80,20 @@ public class JwtTokenProvider {
         try {
             // Parse token với secret key
             Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token);
+                .verifyWith(getSigningKey()) // Xác thực token
+                .build() // Tạo parser
+                .parseSignedClaims(token); // Parse token
             return true;
         } catch (SecurityException ex) {
-            System.err.println("Invalid JWT signature: " + ex.getMessage());
+            System.err.println("Ký tự JWT không hợp lệ: " + ex.getMessage());
         } catch (MalformedJwtException ex) {
-            System.err.println("Invalid JWT token: " + ex.getMessage());
+            System.err.println("Token JWT không hợp lệ: " + ex.getMessage());
         } catch (ExpiredJwtException ex) {
-            System.err.println("Expired JWT token: " + ex.getMessage());
+            System.err.println("Token JWT đã hết hạn: " + ex.getMessage());
         } catch (UnsupportedJwtException ex) {
-            System.err.println("Unsupported JWT token: " + ex.getMessage());
+            System.err.println("Token JWT không được hỗ trợ: " + ex.getMessage());
         } catch (IllegalArgumentException ex) {
-            System.err.println("JWT claims string is empty: " + ex.getMessage());
+            System.err.println("JWT claims string rỗng: " + ex.getMessage());
         }
         return false;
     }

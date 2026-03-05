@@ -51,7 +51,9 @@ public class UserController {
         response.put("id", user.getId());
         response.put("name", user.getName());
         response.put("email", user.getEmail());
-        response.put("role", user.getRole());
+        response.put("role", user.getRoles());
+        response.put("enabled", user.isEnabled());
+        response.put("accountNonLocked", user.isAccountNonLocked());
         response.put("message", "Truy xuất hồ sơ thành công");
 
         return response;

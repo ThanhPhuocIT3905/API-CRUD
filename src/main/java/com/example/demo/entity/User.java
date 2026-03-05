@@ -1,26 +1,17 @@
 package com.example.demo.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import com.example.demo.enums.Role;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
- * User: Entity đại diện cho người dùng trong hệ thống
- * 
- * Chức năng:
- * - Lưu trữ thông tin user cơ bản (id, name, email, password)
- * - Hỗ trợ role-based authentication với enum Role
- * - Validate dữ liệu đầu vào với Jakarta Validation
- * - Tích hợp với Spring Security cho authentication
+ * Enhanced User entity với multi-role và basic account management
  */
 @Entity
 @Data
@@ -30,24 +21,14 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
     
-    /**
-     * Tên đầy đủ của user
-     */
+    @Column(nullable = false)
     private String name;
     
-    /**
-     * Email của user - được sử dụng làm username cho authentication
-     * Phải là duy nhất và không được để trống
-     */
     @Column(unique = true, nullable = false)
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không hợp lệ")
     private String email;
     
-    /**
-     * Mật khẩu đã được mã hóa với BCrypt
-     * Phải tuân thủ quy tắc mật khẩu mạnh
-     */
     @NotBlank(message = "Mật khẩu không được để trống")
     @Pattern(
         regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
@@ -56,20 +37,106 @@ public class User {
     private String password;
     
     /**
-     * Role của user trong hệ thống
-     * Mặc định là USER cho user mới đăng ký
+     * Multi-role support - User có thể có nhiều role
+     * Mặc định là ROLE_USER cho user mới
      */
-    @Enumerated(EnumType.STRING) // Lưu role dưới dạng string trong database
-    @Column(nullable = false)
-    private Role role = Role.USER;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "user_roles",
+        joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role")
+    private Set<Role> roles = new HashSet<>();
     
     /**
-     * Enum định nghĩa các role trong hệ thống
-     * Có thể mở rộng thêm các role khác như ADMIN, MODERATOR, etc.
+     * Account status fields
      */
-    public enum Role {
-        USER,    // User thông thường - có thể truy cập các endpoint cơ bản
-        ADMIN,   // Administrator - có toàn quyền
-        MODERATOR // Moderator - có quyền quản lý nội dung
+    @Column(name = "account_non_locked")
+    private boolean accountNonLocked = true;
+    
+    @Column(name = "failed_attempts")
+    private int failedAttempts = 0;
+    
+    @Column(name = "lock_time")
+    private LocalDateTime lockTime;
+
+    @Column(name = "enabled")
+    private boolean enabled = true;
+    
+    /**
+     * Timestamps
+     */
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+    
+    @Column(name = "last_login")
+    private LocalDateTime lastLogin;
+    
+    /**
+     * Auto-setup khi tạo user mới
+     */
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        // Add default role nếu chưa có role nào
+        if (roles.isEmpty()) {
+            roles.add(Role.ROLE_USER);
+        }
+    }
+    
+    /**
+     * Helper methods
+     */
+    public boolean hasRole(Role role) {
+        return roles.contains(role);
+    }
+    
+    public void addRole(Role role) {
+        roles.add(role);
+    }
+    
+    public void removeRole(Role role) {
+        roles.remove(role);
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+    
+    public boolean isAccountNonLocked() {
+        return accountNonLocked;
+    }
+    
+    public boolean isAccountLocked() {
+        return !accountNonLocked || 
+               (lockTime != null && lockTime.isAfter(LocalDateTime.now()));
+    }
+    
+    public void lockAccount(int lockDurationMinutes) {
+        this.accountNonLocked = false;
+        this.lockTime = LocalDateTime.now().plusMinutes(lockDurationMinutes);
+    }
+    
+    public void unlockAccount() {
+        this.accountNonLocked = true;
+        this.lockTime = null;
+        this.failedAttempts = 0;
+    }
+    
+    public void incrementFailedAttempts() {
+        this.failedAttempts++;
+    }
+    
+    public void resetFailedAttempts() {
+        this.failedAttempts = 0;
     }
 }
